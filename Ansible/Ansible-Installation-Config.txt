@@ -106,7 +106,7 @@ ansible samplenode2 -m ping
 
 
 **************************************************************************************************************************
-#create a dir in /ect/ansible/ for playbooks
+#create a dir in /etc/ansible/ for playbooks
 #and create the playbook .yaml files as mentioned below:
 #sample playbooks:
 
