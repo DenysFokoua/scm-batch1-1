@@ -119,6 +119,9 @@ ansible samplenode2 -m ping
       path: "/home/ansibleadmin/file1.txt"
       state: touch
 
+#run playbook:
+ansible-playbook testfile.yaml
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #testfile1.yaml
 ---
@@ -130,5 +133,8 @@ ansible samplenode2 -m ping
       content: |
         line 01
         line 02
+
+#run playbook:
+ansible-playbook testfile1.yaml
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
