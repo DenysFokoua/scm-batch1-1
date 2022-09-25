@@ -1,0 +1,253 @@
+**************************************************************************************************************************
+#Access thru Ansible Controller :
+**************************************************************************************************************************
+
+ansible testnodes -m ping
+
+ansible all -m ping ### will ping all hosts from /etc/ansible/hosts file
+
+ansible samplenode1 -m ping
+ansible samplenode2 -m ping
+
+#or using user defined Inventry file
+#ansible ansible-node1 -m ping -i myinventoryfile.txt
+
+
+**************************************************************************************************************************
+#create a dir in /ect/ansible/ for playbooks
+#and create the playbook .yaml files as mentioned below:
+#sample playbooks:
+
+#testfile.yaml
+---
+- hosts: all
+  tasks:
+  - name: Creating an empty file
+    file:
+      path: "/home/ansibleadmin/file1.txt"
+      state: touch
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#testfile1.yaml
+---
+- hosts: all
+  tasks:
+  - name: Creating a file with content
+    copy:
+      dest: "/home/ansibleadmin/filewithrecs.txt"
+#	  src: "file1.txt"
+      content: |
+        line 01
+        line 02
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#copyartifacts.yaml
+---
+ - hosts: testnodes
+   tasks:
+     - name: Fetch the file from the Jenkins-javabuildnode to Ansible-Controller
+       #run_once: yes
+       fetch: src=/home/devopsadmin/jenkins/workspace/Java-Mvn-Build-Docker-Pipeline/target/mvn-hello-world.war dest=/home/devopsadmin/ flat=yes
+       when: "{{ inventory_hostname == 'jenkinsbuildserver' }}"
+
+     - name: Copy the file from Ansible-Controller to QA-Server
+       copy: src=/home/devopsadmin/mvn-hello-world.war dest=/opt/tomcat/webapps/
+       when: "{{ inventory_hostname == 'qaserver' }}"
+	   
+	   
+**************************************************************
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#Adhoc Commands with various Modules
+#How Ansible Works?
+#Ansible Facts & Variables
+
+#######Adhoc Commands with various Modules
+
+###Test Connection:
+ansible testnodes -m ping
+
+### Test Uptime of Nodes:
+ansible testnodes -m shell -a "uptime"
+
+### Pass Multiple Groups:
+ansible testnodes1:testnodes2 -m shell -a "uptime"
+
+### Check RAM Utilization:
+ansible testnodes -m shell -a "free -m"
+
+###Pass Different Inventory File:
+ansible -i inventory_file_name prodnodes -m shell -a "uptime"
+
+
+### List all modules:
+ansible-doc -l
+### No. of modules:
+ansible-doc -l | wc -l
+### Search for specific modules:
+ansible-doc -l | grep shel
+### To know about any specific modules:
+ansible-doc shell
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#go to any node
+
+#user root dir
+
+ls -a 
+
+#you shd find .ansible dir
+
+#should see tmp dir in that, whr the modules are copied
+
+### If you dont wish to delete that file user the parameter:
+
+
+ansible testnodes -m shell -a "sleep 5 ; echo 'hi'"
+
+
+ANSIBLE_KEEP_REMOTE_FILES=1 ansible testnodes -m shell -a "uptime"
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Ansible Facts!
+
+
+ansible samplenode1 -m setup
+
+ansible samplenode2 -m setup -a "filter=ansible_mounts"
+
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+---
+name: Play 1
+
+tasks:
+name: Execute command ‘date’
+command: date
+
+name: Execute script on server script: test_script.sh
+
+name: Install httpd service
+yum:
+name: httpd state: present
+
+name: Start web server service:
+name: httpd
+state: started
+
+
+###Ansible VAriables !
+
+
+---
+ - hosts: all
+   tasks:
+   - debug:  
+      msg:
+       - "The os distribution is: {{ansible_distribution}}"
+       - "THe os name is: {{ansible_system}}"
+       - "The os family is: {{ansible_os_family}}"
+       - "THe mount points are :{{ansible_mounts}}"
+
+
+
+---
+ - hosts: localhost
+   gather_facts: false
+   tasks:
+   - debug: 
+      msg:
+      - "The x value is: {{x}}"
+      #- "THe y value is: {{y}}"
+
+
+
+
+---
+ - hosts: localhost
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - set_fact:
+      bash_version: "{{bash_ver.stdout.split('\n')[0].split()[3]}}"
+      my_value: "bash version"
+   - debug: var=bash_version
+
+
+
+
+---
+ - hosts: localhost
+   vars:
+    x: 34
+    #pakgs: ['vim','nano','httpd','nginx']
+    pakgs:
+    - 'vim'
+    - 'nano'
+    - 'httpd'
+    - 'nginx'
+    #web_servers: {'Linux': 'httpd', 'ubuntu': 'apache2'}
+    web_servers:
+     'Linux': 'httpd'
+     'ubuntu': 'apache2'
+   gather_facts: false
+   tasks:
+   - debug: var=web_servers.get('Linux')
+
+
+#variablefile.yaml
+
+---
+ x: 45
+ y:
+  - 4
+  - 67
+  - "ansible"
+ pkgs:
+  "linux": "httpd"
+  "ubundu": "apache"
+  
+  
+  
+readvairablefromfile.yaml
+---
+ - host: testnodes
+   vars_files: variablefile.yaml
+    tasks:
+	- debug: var=pkgs
+	
+ansible-playbook readvairablefromfile.yml
+
+
+---
+- name: Install NGINX
+  hosts: all tasks:
+  - name: Install NGINX on Debian apt:
+     name: nginx
+     state: present
+
+
+
+
+Task1:
+
+Ansible-Controller 
+
+adding jenkin-node1 
+
+playbook to install git, jdk, maven, into the jenkins node. 
+create build pipeline & create artifacts
+
+qa-server --> 
+playbook to install jdk, tomcat in to qa-server 
+
+playbook to copy the artifacts to my qa-server
