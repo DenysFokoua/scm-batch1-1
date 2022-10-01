@@ -1,0 +1,415 @@
+###Ansible - Demo.
+
+##Adhoc Commands:
+
+###test ssh connection from ansible host/controller to remote hosts
+
+ssh -p22 -i /etc/ansible/ansiblenodekeys/ansiblenode1.key ansibleadmin@172.31.1.175
+ssh -p22 -i /etc/ansible/ansiblenodekeys/ansiblenode2.key ansibleadmin@172.31.0.194
+
+###update vi etc/ansible/host
+#**************************************
+#hosts file is the default Inventory file for ansible 
+#**************************************
+
+[testnodes]
+samplenode1 ansible_ssh_host=172.31.1.175 ansible_ssh_user=ansibleadmin ansible_ssh_private_key_file=/etc/ansible/ansiblenodekeys/ansiblenode1.key
+samplenode2 ansible_ssh_host=172.31.0.194 ansible_ssh_user=ansibleadmin ansible_ssh_private_key_file=/etc/ansible/ansiblenodekeys/ansiblenode2.key
+
+#**************************************************************************************************************************
+#Access thru Ansible Controller :
+#**************************************************************************************************************************
+
+ansible testnodes -m ping
+
+ansible all -m ping ### will ping all hosts from /etc/ansible/hosts file
+
+ansible samplenode1 -m ping
+ansible samplenode2 -m ping
+
+#or using user defined Inventory file
+#ansible ansible-node1 -m ping -i myinventoryfile.txt
+
+#**************************************************************************************************************************
+
+Ansible Modules: Eg.: 
+
+setup,copy,fetch,user,command,shell,ping,service,
+
+##Transfer a file from Ansible Controller to Nodes using copy Module
+
+ansible testnodes -m copy -a "src=/etc/ansible/playbooks/acfile1.txt dest=/home/ansibleadmin"
+
+###idempotent
+
+ansible testnodes -m copy -a "content='hello from Ansible Controller\n' dest=/dest/path/hello.txt"
+
+ansible testnodes -m copy -a "content='hello from Ansible Controller\n' dest=/dest/path/hello.txt backup=yes"
+
+
+##Transfer a file from Ansible Nodes to Ansible Controller using fetch Module
+
+ansible testnodes -m fetch -a "src=/home/ansibleadmin/file1.txt dest=/etc/ansible/playbooks/"
+
+ansible testnodes -m fetch -a "src=/srcfile/path/nodefile1.txt dest=/dest/path/"
+
+ansible testnodes -m fetch -a "src=/srcfile/path/nodefile1.txt dest=./demodirpath/"
+
+ansible testnodes -m fetch -a "src=/srcfile/path/nodefile1.txt dest=./demodirpath/ flat=yes"
+
+ansible testnodes -m fetch -a "src=/srcfile/path/demo.txt dest=./demodirpath/{{inventory_hostname}}_demo.txt flat=yes"
+
+
+## Create or Delete a file or dir on Managed Nodes:
+
+#using file module
+
+#Create File
+ansible testnodes -m file -a "path=/demodirpath/hello.txt state=touch"
+
+ansible testnodes -m file -a "path=/demodirpath/newfilehello.txt state=touch mode=0777"
+
+#Delete File
+ansible testnodes -m file -a "path=/demodirpath/newfilehello.txt state=absent"
+
+#Create Dir.
+ansible testnodes -m file -a "path=/demodirpath/hellodir state=directory"
+
+#Check all possible states by entering invalid state
+ansible testnodes -m file -a "path=/demodirpath/hellodir state=dadasdfa"
+
+#execute Task under sys dir as a root user
+ansible testnodes -m file -a "path=/etc/demodirpath/newfilehello1.txt state=touch"
+
+ansible testnodes -m file -a "path=/etc/demodirpath/newfilehello1.txt state=touch --become"
+
+#to get the list of host in command prompt using ansible command:
+ansible testnodes -m ping --list-hosts
+
+#ansible -h
+
+#Explore files modules
+
+
+### Install git, tomcat, on Linux system using yum module
+
+# Linux - yum module
+# Ubuntu - apt module
+
+#Eg.:
+
+ansible testnodes -m yum -a "name=git state=latest"   ### this will throw access issue.
+
+ansible testnodes -m yum -a "name=git state=latest -b" ### hence running with option -b
+
+### Command Module:
+
+command vs shell 
+
+command is default
+
+ansible testnodes -m command -a "ls > listfile.txt" ### Will not work
+
+ansible testnodes -m shell -a x"ls > listfile.txt" ### Will Work
+
+###i.e., With the command module, the command will be executed without being processed thru a shell. As a consequence some variables like $HOME are not allowed. And also stream operations like <, >, | and & will not work. Command module is more secure, because it will not be affected by the users' environment.
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#### Ansible Facts
+
+ansible testnodes -m setup 
+
+ansible samplenode1 -m setup
+
+ansible samplenode1 -m setup -a "filter=ansible_mounts"
+
+ansible samplenode1 -m setup -a "filter=ansible_architecture"
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Ansible Variables:
+##Debug mod executes only on controller
+
+ansible testnodes -m debug -a "msg='Message from Debug Module' {{inventory_hostname}} "
+
+ansible testnodes -m debug -a "var={{inventory_hostname}}"
+
+ansible testnodes -m debug -a "msg={{inventory_hostname}}"
+
+ansible testnodes -m debug -a "msg={{inventory_hostname_short}}"
+
+ansible testnodes --list-hosts
+
+ansible testnodes -m debug -a "var=groups"
+
+ansible testnodes -m debug -a "var=groups.keys()"
+
+ansible testnodes -m file -a "path=vars.txt state=touch"
+
+ansible testnodes -m debug -a "var=inventory_hostname"
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Working with playbooks:
+
+#cat ansible config file:
+
+cat ansible.cfg | head -20
+
+
+##Provide root previlage to install
+
+#testfile.yaml
+
+#!/usr/bin/ansible-playbook
+- hosts: testnodes
+  become: yes
+  tasks:
+  - name: Install tomcat 
+	yum: name=tomcat state=present
+    become: yes
+  - name: Install git 
+    yum: name=git state=present
+    become: yes
+  - name: Creating an empty file
+    file:
+      path: "/home/ansibleadmin/file1.txt"
+      state: touch
+
+chmod +x testfile.yaml
+
+./testfile.yaml
+
+
+# How to jus verify playbook syntax:
+
+ansible-playbook testfile.yaml --syntax-check
+
+# Run in Dry run mode! To check what would happen if you run the playbook:
+ansible-playbook testfile.yaml --check
+
+
+## Run in Verbose Mode to understand the detailed description
+ansible-playbook testfile.yaml -vvvvv
+
+##TO change the verbose color:
+cat ansible.cfg | grep verbose
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### Working with Playbooks:
+
+
+## Print a msg thru playbook:
+#test_playbook.yaml
+---
+ - hosts: all
+   tasks:
+   - debug:  
+      msg:
+       - "The os distribution is: {{ansible_distribution}}"
+       - "THe os name is: {{ansible_system}}"
+       - "The os family is: {{ansible_os_family}}"
+       - "THe mount points are :{{ansible_mounts}}"
+
+## Print a msg thru playbook:
+#test_playbook.yaml
+---
+ - hosts: all
+   tasks:
+   - debug: msg="Hello team, Happy Learning"
+
+
+## Print a msg thru playbook:
+#test_playbook.yaml
+---
+ - hosts: all
+   tasks:
+   - debug: 
+	  msg: "Hello team, Happy Learning"
+
+### Check for syntax:
+
+ansible-playbook test_playbook.yaml --syntax-check
+
+
+
+#test_playbook.yaml
+---
+ - name: Demo on Debug Modules
+   hosts: testnodes
+   tasks:
+   - name: print the variable value
+     debug: 
+	  msg: "Hello team, Happy Learning {{inventory_hostname}}"
+	  var: inventory_hostname
+	  verbosity: 0
+   - name: print the verbosity info
+     debug: 
+	  msg: "Hello team, Happy Learning {{inventory_hostname}}"
+	  var: inventory_hostname
+	  verbosity: 2
+
+ansible-playbook test_playbook.yaml -vv
+
+#test_playbook.yaml
+---
+ - name: Demo on Debug Modules
+   hosts: testnodes
+   tasks:
+   - name: verbosity as default
+     debug: 
+	  msg: "Hello team, Happy Learning"
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~ test_var-datatype.yaml
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   vars:
+    x: 23
+    my_num: 45.67
+    my_name: Loksai
+    my_b: YES   
+   gather_facts: false
+   tasks:
+   - debug:
+      msg:
+       - "The value of x is: {{x}} and type: {{x|type_debug}}"
+       - "THe value of my_num: {{my_num}} and type : {{my_num|type_debug}}"
+       - "The value of my_name : {{my_name}} and type: {{my_name|type_debug}}"
+       - "THe value of my_b is: {{my_b}} and type : {{my_b|type_debug}}"
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~ register and set-facts
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#test_var-datatype.yaml
+---
+ - hosts: localhost
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - set_fact:
+      bash_version: "{{bash_ver.stdout.split('\n')[0].split()[3]}}"
+      my_value: "bash version"
+   - debug: var=bash_version
+
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+
+
+#x = 5
+#y = 5
+#x + y == 10
+#z = x + y 
+#print z
+
+
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - debug: var=bash_ver
+
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - debug: var=bash_ver.stdout
+   
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - debug: var=bash_ver.stdout.split('\n')
+
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - debug: var=bash_ver.stdout.split('\n')[0]
+
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - debug: var=bash_ver.stdout.split('\n')[0].split()
+
+#test_var-datatype.yaml
+---
+ - hosts: testnodes
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - debug: var=bash_ver.stdout.split('\n')[0].split()[3]
+
+#test_var-datatype.yaml
+---
+ - hosts: localhost
+   gather_facts: false
+   tasks:
+   - shell: "bash --version"
+     register: bash_ver
+   - set_fact:
+      bash_version: "{{bash_ver.stdout.split('\n')[0].split()[3]}}"
+      my_value: "bash version"
+   - debug: var=bash_version
+   
+   
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~ datastructures.yaml
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#test_var-datatype.yaml
+---
+ - hosts: localhost
+   vars:
+    x: 34
+    #pakgs: ['vim','nano','httpd','nginx']
+    pakgs:
+    - 'vim'
+    - 'nano'
+    - 'httpd'
+    - 'nginx'
+    #web_servers: {'Linux': 'httpd', 'ubuntu': 'apache2'}
+    web_servers:
+     'Linux': 'httpd'
+     'ubuntu': 'apache2'
+   gather_facts: false
+   tasks:
+#   - debug: var=web_servers.get('Linux')
+   - debug: 
+      var=web_servers.get('Linux')
+	  
+
