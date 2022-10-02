@@ -143,7 +143,7 @@ Step5: We can find custom facts under ansible_local filter or key.
 #Ansible Variables:
 ##Debug mod executes only on controller
 
-ansible testnodes -m debug -a "msg='Message from Debug Module' {{inventory_hostname}} "
+ansible testnodes -m debug -a "msg='Message from Debug Module {{inventory_hostname}}' "
 
 ansible testnodes -m debug -a "var={{inventory_hostname}}"
 
@@ -912,5 +912,3 @@ ansible-vault rekey invault3.yaml
 Vault password: loksai
 New vault password: loksai1
 confirm: loksai1
-
-ansible-playbook invault3.yaml --vault-password-file mypwd
